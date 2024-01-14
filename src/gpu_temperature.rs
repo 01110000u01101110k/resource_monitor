@@ -1,5 +1,8 @@
 use std::process::Command;
 
+use nvml_wrapper::enum_wrappers::device::{TemperatureSensor};
+use nvml_wrapper::{Nvml};
+
 pub fn get_gpu_current_celsius_temperature() -> f32 {
     let data = Command::new("powershell")
         .args(&[
@@ -12,6 +15,14 @@ pub fn get_gpu_current_celsius_temperature() -> f32 {
     let data = String::from_utf8(data.stdout).unwrap();
 
     data.trim_end().parse::<f32>().unwrap()
+}
+
+pub fn get_gpu_current_celsius_temperature_nvml(nvml: &mut Nvml) -> f32 {
+    let device = nvml.device_by_index(0).unwrap();
+
+    let temperature = device.temperature(TemperatureSensor::Gpu).unwrap();
+
+    temperature as f32
 }
 
 /*pub fn get_gpu_current_celsius_temperature() -> f32 {

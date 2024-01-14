@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use eframe::egui::{self, Event, Vec2};
 use egui_plot::{Legend, Line, PlotPoints};
 use crate::cpu_temperature::{get_cpu_current_celsius_temperature};
-use crate::gpu_temperature::get_gpu_current_celsius_temperature;
+use crate::gpu_temperature::{get_gpu_current_celsius_temperature, get_gpu_current_celsius_temperature_nvml};
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
@@ -12,6 +12,8 @@ use windows::{
     Win32::System::Com::*,
     //Win32::System::Wmi::*,
 };
+
+use nvml_wrapper::Nvml;
 
 /*
 struct CpuInfo {
@@ -37,11 +39,9 @@ struct PlotExample {
     gpu_temperature: Arc<RwLock<Vec<f32>>>,
     cpu_temperature: Arc<RwLock<Vec<f32>>>,
     //wmi_server: Arc<IWbemServices>,
+    nvml: Arc<RwLock<Nvml>>,
     is_program_finished_working: Arc<RwLock<bool>>
 }
-
-unsafe impl std::marker::Send for PlotExample {}
-unsafe impl std::marker::Sync for PlotExample {}
 
 impl Default for PlotExample {
     fn default() -> Self {
@@ -54,9 +54,13 @@ impl Default for PlotExample {
             let locator: IWbemLocator = CoCreateInstance(&WbemLocator, None, CLSCTX_INPROC_SERVER).unwrap();
             let wmi_server = locator.ConnectServer(&windows::core::BSTR::from("root\\cimv2"), None, None, None, 0, None, None).unwrap();
             */
+
+            // ініціалізую nvml
+            let nvml = Nvml::init().unwrap();
+
             Self {
-                lock_x: AtomicBool::new(false),
-                lock_y: AtomicBool::new(false),
+                lock_x: AtomicBool::new(true),
+                lock_y: AtomicBool::new(true),
                 ctrl_to_zoom: AtomicBool::new(false),
                 shift_to_horizontal: AtomicBool::new(false),
                 zoom_speed: Arc::new(1.0),
@@ -65,6 +69,7 @@ impl Default for PlotExample {
                 inner_timer: Arc::new(RwLock::new(None)),
                 gpu_temperature: Arc::new(RwLock::new(Vec::new())),
                 cpu_temperature: Arc::new(RwLock::new(Vec::new())),
+                nvml: Arc::new(RwLock::new(nvml)),
                 //wmi_server: Arc::new(wmi_server),
                 is_program_finished_working: Arc::new(RwLock::new(false))
             }
@@ -149,17 +154,17 @@ impl eframe::App for PlotExample {
                         }
 
                         if gpu_temperature.len() < 2 {
-                            plot_ui.line(Line::new(PlotPoints::default()).name("GPU"));
+                            plot_ui.line(Line::new(PlotPoints::default()).name("GPU").width(5.0));
 
-                            plot_ui.line(Line::new(PlotPoints::default()).name("CPU"));
+                            plot_ui.line(Line::new(PlotPoints::default()).name("CPU").width(5.0));
                         } else {
-                            let gpu_temperature_points = PlotPoints::from_ys_f32(&gpu_temperature[..]);
+                            //let gpu_temperature_points = PlotPoints::from_ys_f32(&gpu_temperature[..]);
 
-                            plot_ui.line(Line::new(gpu_temperature_points).name("GPU"));
+                            plot_ui.line(Line::new(PlotPoints::from_ys_f32(&gpu_temperature[..])).name("GPU").width(5.0));
 
-                            let cpu_temperature_points = PlotPoints::from_ys_f32(&cpu_temperature[..]);
+                            //let cpu_temperature_points = PlotPoints::from_ys_f32(&cpu_temperature[..]);
 
-                            plot_ui.line(Line::new(cpu_temperature_points).name("CPU"));
+                            plot_ui.line(Line::new(PlotPoints::from_ys_f32(&cpu_temperature[..])).name("CPU").width(5.0));
                         }
                     });
             });
@@ -194,6 +199,7 @@ pub fn run_multi_threaded_implementation() -> Result<(), eframe::Error> {
     let gpu_temperature = plot.gpu_temperature.clone();
     let cpu_temperature = plot.cpu_temperature.clone();
     let is_program_finished_working = plot.is_program_finished_working.clone();
+    let nvml = plot.nvml.clone();
 
     let thread = std::thread::spawn(move || {
         loop {
@@ -205,8 +211,17 @@ pub fn run_multi_threaded_implementation() -> Result<(), eframe::Error> {
                 let mut gpu_temperature_inner = Vec::new();
                 let mut cpu_temperature_inner = Vec::new();
 
-                gpu_temperature_inner.push(get_gpu_current_celsius_temperature());
+                let update_time = Instant::now();
+                
+                gpu_temperature_inner.push(get_gpu_current_celsius_temperature_nvml(&mut nvml.write().unwrap()));
+
+                println!("gpu update_time get {}", update_time.elapsed().as_millis());
+
+                let update_time = Instant::now();
+
                 cpu_temperature_inner.push(get_cpu_current_celsius_temperature());
+
+                println!("cpu update_time get {}", update_time.elapsed().as_millis());
 
                 gpu_temperature.write().unwrap().append(&mut gpu_temperature_inner);
                 cpu_temperature.write().unwrap().append(&mut cpu_temperature_inner);
@@ -223,7 +238,7 @@ pub fn run_multi_threaded_implementation() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions::default();
 
     let eframe = eframe::run_native(
-        "Plot",
+        "Resource monitor",
         options,
         Box::new(|_cc| plot),
     );
