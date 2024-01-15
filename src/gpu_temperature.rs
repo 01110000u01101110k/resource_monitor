@@ -25,6 +25,14 @@ pub fn get_gpu_current_celsius_temperature_nvml(nvml: &mut Nvml) -> f32 {
     temperature as f32
 }
 
+pub fn get_gpu_name_nvml(nvml: &mut Nvml) -> String {
+    let device = nvml.device_by_index(0).unwrap();
+
+    let temperature = device.name().unwrap();
+
+    temperature
+}
+
 /*pub fn get_gpu_current_celsius_temperature() -> f32 {
     let data = Command::new("powershell")
         .args(&[

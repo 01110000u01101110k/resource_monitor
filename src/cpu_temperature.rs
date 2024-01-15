@@ -69,3 +69,42 @@ pub fn get_cpu_current_celsius_temperature() -> f32 {
 
     drained_data.trim().parse::<f32>().unwrap() - 273.15
 }
+
+pub fn get_cpu_name(server: &IWbemServices) -> String {
+    unsafe {
+        let query = server.ExecQuery(
+            &BSTR::from("WQL"),
+            &BSTR::from("select Name from Win32_Processor"),
+            WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
+            None,
+        ).unwrap();
+        
+        loop {
+            let mut row = [None; 1];
+            let mut returned = 0;
+            query.Next(WBEM_INFINITE, &mut row, &mut returned).ok().unwrap();
+
+            if let Some(row) = &row[0] {
+                let mut value = Default::default();
+                row.Get(w!("Name"), 0, &mut value, None, None).unwrap();
+
+                match VarFormat(
+                    &value,
+                    None,
+                    VARFORMAT_FIRST_DAY_SYSTEMDEFAULT,
+                    VARFORMAT_FIRST_WEEK_SYSTEMDEFAULT,
+                    0
+                ) {
+                    Ok(value) => {
+                        break value.to_string();
+                    },
+                    Err(_) => {}
+                }
+
+                VariantClear(&mut value).unwrap();
+            } else {
+                break "інформація відсутня".to_string();
+            }
+        }
+    }
+}

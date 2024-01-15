@@ -2,8 +2,8 @@ use std::time::{Duration, Instant};
 
 use eframe::egui::{self, Event, Vec2};
 use egui_plot::{Legend, Line, PlotPoints};
-use crate::cpu_temperature::{get_cpu_current_celsius_temperature_using_wmi};
-use crate::gpu_temperature::{get_gpu_current_celsius_temperature, get_gpu_current_celsius_temperature_nvml};
+use crate::cpu_temperature::{get_cpu_current_celsius_temperature_using_wmi, get_cpu_name};
+use crate::gpu_temperature::{get_gpu_current_celsius_temperature, get_gpu_current_celsius_temperature_nvml, get_gpu_name_nvml};
 
 use windows::{
     Win32::System::Com::*,
@@ -19,6 +19,8 @@ struct PlotExample {
     is_display_cpu_temperature: bool,
     gpu_temperature: Vec<f32>,
     cpu_temperature: Vec<f32>,
+    cpu_name: String,
+    gpu_name: String,
     wmi_server: IWbemServices,
     nvml: Nvml
 }
@@ -26,15 +28,16 @@ struct PlotExample {
 impl Default for PlotExample {
     fn default() -> Self {
         unsafe {
-            /*
-                ініціалізую інтерфейс IWbemServices, він використовується 
-                клієнтами та постачальниками для доступу до служб WMI
-            */
+            // ініціалізую інтерфейс IWbemServices, він використовується для доступу до служб WMI
             let locator: IWbemLocator = CoCreateInstance(&WbemLocator, None, CLSCTX_INPROC_SERVER).unwrap();
             let wmi_server = locator.ConnectServer(&windows::core::BSTR::from("root\\cimv2"), None, None, None, 0, None, None).unwrap();
 
             // ініціалізую nvml
-            let nvml = Nvml::init().unwrap();
+            let mut nvml = Nvml::init().unwrap();
+
+            let cpu_name = get_cpu_name(&wmi_server);
+
+            let gpu_name = get_gpu_name_nvml(&mut nvml);
 
             Self {
                 time_between_update: Duration::from_millis(500),
@@ -43,6 +46,8 @@ impl Default for PlotExample {
                 is_display_cpu_temperature: true,
                 gpu_temperature: Vec::new(),
                 cpu_temperature: Vec::new(),
+                cpu_name,
+                gpu_name,
                 wmi_server,
                 nvml
             }
@@ -53,11 +58,15 @@ impl Default for PlotExample {
 impl eframe::App for PlotExample {
     fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
             egui::SidePanel::left("options").show(&ctx, |ui| {
-                ui.checkbox(&mut self.is_display_gpu_temperature, "відображати температуру відеокарти").on_hover_text("");
-                ui.checkbox(&mut self.is_display_cpu_temperature, "відображати температуру процесора").on_hover_text("");
+                ui.checkbox(&mut self.is_display_gpu_temperature, "Відображати температуру відеокарти");
+                ui.checkbox(&mut self.is_display_cpu_temperature, "Відображати температуру процесора");
             });
             egui::CentralPanel::default().show(&ctx, |ui| {
-                ui.label("графік температур процесора та відеокарти");
+                ui.heading("Графік температур процесора та відеокарти");
+                ui.label("");
+                ui.label(format!("Процесор: {}", &self.cpu_name));
+                ui.label(format!("Відеокарта: {}", &self.gpu_name));
+                ui.label("");
 
                 egui_plot::Plot::new("resource_monitor")
                     .allow_zoom(false)
