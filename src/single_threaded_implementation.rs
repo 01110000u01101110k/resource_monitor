@@ -83,9 +83,7 @@ impl eframe::App for PlotExample {
 
             if self.inner_timer == None {
                 self.inner_timer = Some(Instant::now());
-            }
-
-            if self.inner_timer.unwrap().elapsed() >= self.time_between_update {
+            } else if self.inner_timer.unwrap().elapsed() >= self.time_between_update {
                 //let update_time = Instant::now();
 
                 if self.is_display_gpu_temperature {
