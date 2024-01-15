@@ -63,7 +63,15 @@ impl eframe::App for PlotExample {
                     .allow_zoom(false)
                     .allow_drag(false)
                     .allow_scroll(false)
+                    .allow_boxed_zoom(false)
                     .legend(Legend::default())
+                    .label_formatter(|name, value| {
+                        if !name.is_empty() {
+                            format!("Температура {}: {:.*}°C", name, 1, value.y)
+                        } else {
+                            "".to_owned()
+                        }
+                    })
                     .show(ui, |plot_ui| {
                         if self.gpu_temperature.len() < 2 {
                             plot_ui.line(Line::new(PlotPoints::default()).name("GPU"));
