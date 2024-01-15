@@ -73,6 +73,7 @@ impl eframe::App for PlotExample {
                 .allow_drag(false)
                 .allow_scroll(false)
                 .allow_boxed_zoom(false)
+                .show_axes(egui::Vec2b{x: false, y: true})
                 .legend(Legend::default())
                 .label_formatter(|name, value| {
                     if !name.is_empty() {
