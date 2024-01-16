@@ -74,10 +74,11 @@ impl eframe::App for PlotExample {
                 .allow_scroll(false)
                 .allow_boxed_zoom(false)
                 .show_axes(egui::Vec2b{x: false, y: true})
+                .show_grid(egui::Vec2b{x: false, y: true})
                 .legend(Legend::default())
                 .label_formatter(|name, value| {
                     if !name.is_empty() {
-                        format!("Температура {}: {:.*}°C", name, 1, value.y)
+                        format!("{}: {:.*}°C", name, 1, value.y)
                     } else {
                         "".to_owned()
                     }
@@ -155,7 +156,10 @@ pub fn run_single_threaded_implementation() -> Result<(), eframe::Error> {
         ).unwrap();
     }
 
-    let options = eframe::NativeOptions::default();
+    let mut options = eframe::NativeOptions::default();
+
+    options.centered = true;
+    //options.viewport.window_level = Some(egui::viewport::WindowLevel::AlwaysOnTop);
 
     eframe::run_native(
         "Resource monitor",
