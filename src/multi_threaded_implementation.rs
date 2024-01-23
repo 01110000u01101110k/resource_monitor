@@ -2,15 +2,15 @@ use std::time::{Duration, Instant};
 
 use eframe::egui::{self, Event, Vec2};
 use egui_plot::{Legend, Line, PlotPoints};
-use crate::cpu_temperature::{get_cpu_current_celsius_temperature};
-use crate::gpu_temperature::{get_gpu_current_celsius_temperature, get_gpu_current_celsius_temperature_nvml};
+use crate::cpu_temperature::{get_cpu_current_celsius_temperature, get_cpu_name};
+use crate::gpu_temperature::{get_gpu_current_celsius_temperature, get_gpu_current_celsius_temperature_nvml, get_gpu_name_nvml};
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 
 use windows::{
     Win32::System::Com::*,
-    //Win32::System::Wmi::*,
+    Win32::System::Wmi::*,
 };
 
 use nvml_wrapper::Nvml;
@@ -22,39 +22,46 @@ struct PlotExample {
     is_display_cpu_temperature: Arc<RwLock<bool>>,
     gpu_temperature: Arc<RwLock<Vec<f32>>>,
     cpu_temperature: Arc<RwLock<Vec<f32>>>,
-    //wmi_server: Arc<IWbemServices>,
+    cpu_name: String,
+    gpu_name: String,
+    wmi_server: Arc<IWbemServices>,
     nvml: Arc<RwLock<Nvml>>,
     is_program_finished_working: Arc<RwLock<bool>>
 }
 
 impl Default for PlotExample {
     fn default() -> Self {
-        //unsafe {
-            /*
-                ініціалізую інтерфейс IWbemServices, він використовується 
-                клієнтами та постачальниками для доступу до служб WMI
-            */
-            /*
-            let locator: IWbemLocator = CoCreateInstance(&WbemLocator, None, CLSCTX_INPROC_SERVER).unwrap();
-            let wmi_server = locator.ConnectServer(&windows::core::BSTR::from("root\\cimv2"), None, None, None, 0, None, None).unwrap();
-            */
+        let locator: IWbemLocator;
+        let wmi_server;
 
-            // ініціалізую nvml
-            let nvml = Nvml::init().unwrap();
+        unsafe {
+            // ініціалізую інтерфейс IWbemServices, він використовується для доступу до служб WMI
+            
+            locator = CoCreateInstance(&WbemLocator, None, CLSCTX_INPROC_SERVER).unwrap();
+            wmi_server = locator.ConnectServer(&windows::core::BSTR::from("root\\cimv2"), None, None, None, 0, None, None).unwrap();
+        }
+        // ініціалізую nvml
+        let mut nvml = Nvml::init().unwrap();
 
-            Self {
-                time_between_update: Arc::new(Duration::from_millis(2000)),
-                inner_timer: Arc::new(RwLock::new(None)),
-                is_display_gpu_temperature: Arc::new(RwLock::new(true)),
-                is_display_cpu_temperature: Arc::new(RwLock::new(true)),
-                gpu_temperature: Arc::new(RwLock::new(Vec::new())),
-                cpu_temperature: Arc::new(RwLock::new(Vec::new())),
-                nvml: Arc::new(RwLock::new(nvml)),
-                //wmi_server: Arc::new(wmi_server),
-                is_program_finished_working: Arc::new(RwLock::new(false))
-            }
-        //}
+        let cpu_name = get_cpu_name(&wmi_server);
+
+        let gpu_name = get_gpu_name_nvml(&mut nvml);
+
+        Self {
+            time_between_update: Arc::new(Duration::from_millis(2000)),
+            inner_timer: Arc::new(RwLock::new(None)),
+            is_display_gpu_temperature: Arc::new(RwLock::new(true)),
+            is_display_cpu_temperature: Arc::new(RwLock::new(true)),
+            gpu_temperature: Arc::new(RwLock::new(Vec::new())),
+            cpu_temperature: Arc::new(RwLock::new(Vec::new())),
+            cpu_name,
+            gpu_name,
+            nvml: Arc::new(RwLock::new(nvml)),
+            wmi_server: Arc::new(wmi_server),
+            is_program_finished_working: Arc::new(RwLock::new(false))
+        }
     }
+    
 }
 
 impl eframe::App for PlotExample {
@@ -71,8 +78,15 @@ impl eframe::App for PlotExample {
         });
 
         egui::CentralPanel::default().show(&ctx, |ui| {
-            ui.label("графік температур процесора та відеокарти");
+            ui.heading("Графік температур процесора та відеокарти");
+            ui.add_space(10.0);
 
+            ui.label(format!("Процесор: {}", &self.cpu_name));
+            ui.add_space(10.0);
+
+            ui.label(format!("Відеокарта: {}", &self.gpu_name));
+            ui.add_space(10.0);
+            
             egui_plot::Plot::new("resource_monitor")
                 .allow_zoom(false)
                 .allow_drag(false)
