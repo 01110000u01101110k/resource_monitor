@@ -145,31 +145,30 @@ impl eframe::App for PlotExample {
         if self.inner_timer == None {
             self.inner_timer = Some(Instant::now());
         } else if self.inner_timer.unwrap().elapsed() >= Duration::from_millis(self.delay_between_temperature_requests as u64) {
-            //let update_time = Instant::now();
+            let mut gpu_temperature_inner = 0.0;
+            let mut cpu_temperature_inner = 0.0;
 
             if self.is_display_gpu_temperature {
-                self.gpu_temperature.push(get_gpu_current_celsius_temperature_nvml(&mut self.nvml));
-
-                if self.gpu_temperature.len() > self.amount_of_stored_data as usize {
-                    self.gpu_temperature.remove(0);
-                    self.gpu_temperature.remove(0);
-                }
+                gpu_temperature_inner = get_gpu_current_celsius_temperature_nvml(&mut self.nvml);
             }
-
-            //println!("gpu update_time get {}", update_time.elapsed().as_millis());
-
-            //let update_time = Instant::now();
 
             if self.is_display_cpu_temperature {
-                self.cpu_temperature.push(get_cpu_current_celsius_temperature_using_wmi(&self.wmi_server)[0]);
-
-                if self.cpu_temperature.len() > self.amount_of_stored_data as usize {
-                    self.cpu_temperature.remove(0);
-                    self.cpu_temperature.remove(0);
-                }
+                cpu_temperature_inner = get_cpu_current_celsius_temperature_using_wmi(&self.wmi_server)[0]
             }
 
-            //println!("cpu update_time get {}", update_time.elapsed().as_millis());
+            self.gpu_temperature.push(gpu_temperature_inner);
+
+            if self.gpu_temperature.len() > self.amount_of_stored_data as usize {
+                self.gpu_temperature.remove(0);
+                self.gpu_temperature.remove(0);
+            }
+
+            self.cpu_temperature.push(cpu_temperature_inner);
+
+            if self.cpu_temperature.len() > self.amount_of_stored_data as usize {
+                self.cpu_temperature.remove(0);
+                self.cpu_temperature.remove(0);
+            }
 
             self.inner_timer = None;
         }
