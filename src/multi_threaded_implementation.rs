@@ -36,7 +36,6 @@ impl Default for PlotExample {
 
         unsafe {
             // ініціалізую інтерфейс IWbemServices, він використовується для доступу до служб WMI
-            
             locator = CoCreateInstance(&WbemLocator, None, CLSCTX_INPROC_SERVER).unwrap();
             wmi_server = locator.ConnectServer(&windows::core::BSTR::from("root\\cimv2"), None, None, None, 0, None, None).unwrap();
         }
@@ -86,7 +85,7 @@ impl eframe::App for PlotExample {
 
             ui.label(format!("Відеокарта: {}", &self.gpu_name));
             ui.add_space(10.0);
-            
+
             egui_plot::Plot::new("resource_monitor")
                 .allow_zoom(false)
                 .allow_drag(false)

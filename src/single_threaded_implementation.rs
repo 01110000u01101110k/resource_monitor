@@ -29,32 +29,34 @@ struct PlotExample {
 
 impl Default for PlotExample {
     fn default() -> Self {
+        let locator: IWbemLocator;
+        let wmi_server;
+
         unsafe {
             // ініціалізую інтерфейс IWbemServices, він використовується для доступу до служб WMI
-            let locator: IWbemLocator = CoCreateInstance(&WbemLocator, None, CLSCTX_INPROC_SERVER).unwrap();
-            let wmi_server = locator.ConnectServer(&windows::core::BSTR::from("root\\cimv2"), None, None, None, 0, None, None).unwrap();
-
+            locator = CoCreateInstance(&WbemLocator, None, CLSCTX_INPROC_SERVER).unwrap();
+            wmi_server = locator.ConnectServer(&windows::core::BSTR::from("root\\cimv2"), None, None, None, 0, None, None).unwrap();
+        }
             // ініціалізую nvml
-            let mut nvml = Nvml::init().unwrap();
+        let mut nvml = Nvml::init().unwrap();
 
-            let cpu_name = get_cpu_name(&wmi_server);
+        let cpu_name = get_cpu_name(&wmi_server);
 
-            let gpu_name = get_gpu_name_nvml(&mut nvml);
+        let gpu_name = get_gpu_name_nvml(&mut nvml);
 
-            Self {
-                delay_between_temperature_requests: 500,
-                inner_timer: None,
-                is_display_gpu_temperature: true,
-                is_display_cpu_temperature: true,
-                gpu_temperature: Vec::new(),
-                cpu_temperature: Vec::new(),
-                cpu_name,
-                gpu_name,
-                amount_of_stored_data: 600,
-                wmi_server,
-                nvml,
-                delay_between_updates: 12
-            }
+        Self {
+            delay_between_temperature_requests: 500,
+            inner_timer: None,
+            is_display_gpu_temperature: true,
+            is_display_cpu_temperature: true,
+            gpu_temperature: Vec::new(),
+            cpu_temperature: Vec::new(),
+            cpu_name,
+            gpu_name,
+            amount_of_stored_data: 600,
+            wmi_server,
+            nvml,
+            delay_between_updates: 12
         }
     }
 }
