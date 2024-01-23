@@ -144,8 +144,8 @@ pub fn run_multi_threaded_implementation() -> Result<(), eframe::Error> {
             if read_inner_timer == None {
                 *inner_timer.write().unwrap() = Some(Instant::now());
             } else if read_inner_timer.unwrap().elapsed() >= *time_between_update {
-                let mut gpu_temperature_inner = Vec::new();
-                let mut cpu_temperature_inner = Vec::new();
+                let mut gpu_temperature_inner = 0.0;
+                let mut cpu_temperature_inner = 0.0;
 
                 let is_display_gpu_temperature_read = *is_display_gpu_temperature.read().unwrap();
                 let is_display_cpu_temperature_read = *is_display_cpu_temperature.read().unwrap();
@@ -153,7 +153,7 @@ pub fn run_multi_threaded_implementation() -> Result<(), eframe::Error> {
                 if is_display_gpu_temperature_read {
                     let update_time = Instant::now();
                     
-                    gpu_temperature_inner.push(get_gpu_current_celsius_temperature_nvml(&mut nvml.write().unwrap()));
+                    gpu_temperature_inner = get_gpu_current_celsius_temperature_nvml(&mut nvml.write().unwrap());
 
                     println!("gpu update_time get {}", update_time.elapsed().as_millis());
                 }
@@ -161,27 +161,23 @@ pub fn run_multi_threaded_implementation() -> Result<(), eframe::Error> {
                 if is_display_cpu_temperature_read {
                     let update_time = Instant::now();
 
-                    cpu_temperature_inner.push(get_cpu_current_celsius_temperature());
+                    cpu_temperature_inner = get_cpu_current_celsius_temperature();
 
                     println!("cpu update_time get {}", update_time.elapsed().as_millis());
                 }
 
-                if is_display_gpu_temperature_read {
-                    gpu_temperature.write().unwrap().append(&mut gpu_temperature_inner);
+                gpu_temperature.write().unwrap().push(gpu_temperature_inner);
 
-                    if gpu_temperature.read().unwrap().len() > 120 {
-                        gpu_temperature.write().unwrap().remove(0);
-                        gpu_temperature.write().unwrap().remove(0);
-                    }
+                if gpu_temperature.read().unwrap().len() > 120 {
+                    gpu_temperature.write().unwrap().remove(0);
+                    gpu_temperature.write().unwrap().remove(0);
                 }
 
-                if is_display_cpu_temperature_read {
-                    cpu_temperature.write().unwrap().append(&mut cpu_temperature_inner);
+                cpu_temperature.write().unwrap().push(cpu_temperature_inner);
 
-                    if cpu_temperature.read().unwrap().len() > 120 {
-                        cpu_temperature.write().unwrap().remove(0);
-                        cpu_temperature.write().unwrap().remove(0);
-                    }
+                if cpu_temperature.read().unwrap().len() > 120 {
+                    cpu_temperature.write().unwrap().remove(0);
+                    cpu_temperature.write().unwrap().remove(0);
                 }
 
                 *inner_timer.write().unwrap() = None;

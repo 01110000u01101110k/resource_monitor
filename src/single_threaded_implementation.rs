@@ -81,7 +81,7 @@ impl eframe::App for PlotExample {
                 );
                 ui.add_space(5.0);
                 ui.label("Наприклад:");
-                ui.label("- при використанні програми в фоновому режимі, щоб заощадити ресурси системи її можна попередньо налавштувати збільшивши затримку між оновленням рендеру, та збільшивши затримку між запитами на отримання температури, та після цього згорнути програму.");
+                ui.label("- при використанні програми в фоновому режимі, щоб заощадити ресурси системи, програму можна попередньо налавштувати, збільшивши затримку між оновленням рендеру, та збільшивши затримку між запитами на отримання температури, та після цього згорнути програму.");
             });
             ui.add_space(10.0);
 
@@ -116,7 +116,7 @@ impl eframe::App for PlotExample {
                 .show_grid(egui::Vec2b{x: false, y: true})
                 .legend(Legend::default()
                     .background_alpha(1.0)
-                    .position(egui_plot::Corner::LeftTop)
+                    .position(egui_plot::Corner::RightBottom)
                 )
                 .label_formatter(|name, value| {
                     if !name.is_empty() {
@@ -132,11 +132,11 @@ impl eframe::App for PlotExample {
                         plot_ui.line(Line::new(PlotPoints::default()).name("CPU"));
                     } else {
                         if self.is_display_gpu_temperature {
-                            plot_ui.line(Line::new(PlotPoints::from_ys_f32(&self.gpu_temperature[..])).name("GPU").width(5.0));
+                            plot_ui.line(Line::new(PlotPoints::from_ys_f32(&self.gpu_temperature[..])).name("GPU").width(5.0).color(egui::Color32::GREEN));
                         }
 
                         if self.is_display_cpu_temperature {
-                            plot_ui.line(Line::new(PlotPoints::from_ys_f32(&self.cpu_temperature[..])).name("CPU").width(5.0));
+                            plot_ui.line(Line::new(PlotPoints::from_ys_f32(&self.cpu_temperature[..])).name("CPU").width(5.0).color(egui::Color32::RED));
                         }
                     }
                 });
