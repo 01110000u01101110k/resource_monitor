@@ -78,10 +78,15 @@ impl eframe::App for PlotExample {
                 .allow_drag(false)
                 .allow_scroll(false)
                 .allow_boxed_zoom(false)
-                .legend(Legend::default())
+                .show_axes(egui::Vec2b{x: false, y: true})
+                .show_grid(egui::Vec2b{x: false, y: true})
+                .legend(Legend::default()
+                    .background_alpha(1.0)
+                    .position(egui_plot::Corner::RightBottom)
+                )
                 .label_formatter(|name, value| {
                     if !name.is_empty() {
-                        format!("Температура {}: {:.*}°C", name, 1, value.y)
+                        format!("{}: {:.*}°C", name, 1, value.y)
                     } else {
                         "".to_owned()
                     }
@@ -93,11 +98,11 @@ impl eframe::App for PlotExample {
                         plot_ui.line(Line::new(PlotPoints::default()).name("CPU").width(5.0));
                     } else {
                         if is_display_gpu_temperature_read {
-                            plot_ui.line(Line::new(PlotPoints::from_ys_f32(&gpu_temperature[..])).name("GPU").width(5.0));
+                            plot_ui.line(Line::new(PlotPoints::from_ys_f32(&gpu_temperature[..])).name("GPU").width(5.0).color(egui::Color32::GREEN));
                         }
 
                         if is_display_cpu_temperature_read {
-                            plot_ui.line(Line::new(PlotPoints::from_ys_f32(&cpu_temperature[..])).name("CPU").width(5.0));
+                            plot_ui.line(Line::new(PlotPoints::from_ys_f32(&cpu_temperature[..])).name("CPU").width(5.0).color(egui::Color32::RED));
                         }
                     }
                 });
