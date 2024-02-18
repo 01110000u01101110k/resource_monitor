@@ -16,7 +16,7 @@ use windows::{
 use nvml_wrapper::Nvml;
 
 struct PlotExample {
-    time_between_update: Arc<Duration>,
+    delay_between_temperature_requests: Arc<RwLock<u64>>,
     inner_timer: Arc<RwLock<Option<Instant>>>,
     is_display_gpu_temperature: Arc<RwLock<bool>>,
     is_display_cpu_temperature: Arc<RwLock<bool>>,
@@ -24,8 +24,10 @@ struct PlotExample {
     cpu_temperature: Arc<RwLock<Vec<f32>>>,
     cpu_name: String,
     gpu_name: String,
+    amount_of_stored_data: Arc<RwLock<u16>>,
     wmi_server: Arc<IWbemServices>,
     nvml: Arc<RwLock<Nvml>>,
+    delay_between_updates: Arc<RwLock<u64>>,
     is_program_finished_working: Arc<RwLock<bool>>
 }
 
@@ -47,7 +49,7 @@ impl Default for PlotExample {
         let gpu_name = get_gpu_name_nvml(&mut nvml);
 
         Self {
-            time_between_update: Arc::new(Duration::from_millis(2000)),
+            delay_between_temperature_requests: Arc::new(RwLock::new(500)),
             inner_timer: Arc::new(RwLock::new(None)),
             is_display_gpu_temperature: Arc::new(RwLock::new(true)),
             is_display_cpu_temperature: Arc::new(RwLock::new(true)),
@@ -55,7 +57,9 @@ impl Default for PlotExample {
             cpu_temperature: Arc::new(RwLock::new(Vec::new())),
             cpu_name,
             gpu_name,
+            amount_of_stored_data: Arc::new(RwLock::new(1200)),
             nvml: Arc::new(RwLock::new(nvml)),
+            delay_between_updates: Arc::new(RwLock::new(16)),
             wmi_server: Arc::new(wmi_server),
             is_program_finished_working: Arc::new(RwLock::new(false))
         }
@@ -72,8 +76,40 @@ impl eframe::App for PlotExample {
         let is_display_cpu_temperature_read = *self.is_display_cpu_temperature.read().unwrap();
 
         egui::SidePanel::left("options").show(&ctx, |ui| {
-            ui.checkbox(&mut *self.is_display_gpu_temperature.write().unwrap(), "відображати температуру відеокарти").on_hover_text("");
-            ui.checkbox(&mut *self.is_display_cpu_temperature.write().unwrap(), "відображати температуру процесора").on_hover_text("");
+            ui.heading("Відображення");
+            ui.add_space(10.0);
+
+            ui.checkbox(&mut self.is_display_gpu_temperature.write().unwrap(), "Відображати температуру відеокарти");
+            ui.checkbox(&mut self.is_display_cpu_temperature.write().unwrap(), "Відображати температуру процесора");
+            ui.add_space(10.0);
+
+            ui.add(egui::Separator::default());
+            ui.add_space(10.0);
+
+            ui.heading("Оптимізація");
+            ui.add_space(10.0);
+
+            ui.collapsing("Детальніше про оптимізацію", |ui| {
+                ui.label(
+                    "Ця вкладка надає можливість самостійно оптимізувати програму."
+                );
+                ui.add_space(5.0);
+                ui.label("Наприклад:");
+                ui.label("- при використанні програми в фоновому режимі, щоб заощадити ресурси системи, програму можна попередньо налавштувати, збільшивши затримку між оновленням рендеру, та збільшивши затримку між запитами на отримання температури, та після цього згорнути програму.");
+            });
+            ui.add_space(10.0);
+
+            ui.label("Затримка між запитами на отримання температури (ms)").on_hover_text("регулюємо частуту отримання данних про температуру, чим більше значення, тим більша затримка до отримання данних.");
+            ui.add(egui::Slider::new(&mut *self.delay_between_temperature_requests.write().unwrap(), 0..=3000)).on_hover_text("регулюємо частуту отримання данних про температуру, чим більше значення, тим більша затримка до отримання данних.");
+            ui.add_space(10.0);
+
+            ui.label("Затримка між викликами рендеру (ms)").on_hover_text("регулюємо затримку між оновленнями рендеру кожного кадру, простіше кажучи - дозволяє збільшувати, або зменшувати обмеження fps. Чим більше значення тим більша затримка, та нижчий fps, та відповідно меньше навантаження на систему.");
+            ui.add(egui::Slider::new(&mut *self.delay_between_updates.write().unwrap(), 1..=100)).on_hover_text("регулюємо затримку між оновленнями рендеру кожного кадру, простіше кажучи - дозволяє збільшувати, або зменшувати обмеження fps. Чим більше значення тим більша затримка, та нижчий fps, та відповідно меньше навантаження на систему.");
+            ui.add_space(10.0);
+
+            ui.label("Кількість відображених даних про температуру").on_hover_text("регулюємо кількість елментів графіка відображених на екрані. Після накопичення вказаного значення найстаріші значеня починають по одному видалятися, як тільки надходять нові данні. Чим більше значення, тим більша кількість елментів буде збережена, та відобоажена на екрані (за певний проміжок часу).");
+            ui.add(egui::Slider::new(&mut *self.amount_of_stored_data.write().unwrap(), 10..=1200)).on_hover_text("регулюємо кількість елментів графіка відображених на екрані. Після накопичення вказаного значення найстаріші значеня починають по одному видалятися, як тільки надходять нові данні. Чим більше значення, тим більша кількість елментів буде збережена, та відобоажена на екрані (за певний проміжок часу).");
+            
         });
 
         egui::CentralPanel::default().show(&ctx, |ui| {
@@ -120,6 +156,10 @@ impl eframe::App for PlotExample {
                     }
                 });
         });
+
+        std::thread::sleep(Duration::from_millis(*self.delay_between_updates.read().unwrap())); // обмежую "fps" програми, щоб заощадити ресурси комп'ютера
+
+        ctx.request_repaint();
     }
 
     fn on_exit(&mut self, _gl: Option<&glow::Context>) {
@@ -146,7 +186,7 @@ pub fn run_multi_threaded_implementation() -> Result<(), eframe::Error> {
 
     let plot = Box::<PlotExample>::default();
 
-    let time_between_update = plot.time_between_update.clone();
+    let delay_between_temperature_requests = plot.delay_between_temperature_requests.clone();
     let inner_timer = plot.inner_timer.clone();
     let gpu_temperature = plot.gpu_temperature.clone();
     let cpu_temperature = plot.cpu_temperature.clone();
@@ -154,6 +194,7 @@ pub fn run_multi_threaded_implementation() -> Result<(), eframe::Error> {
     let nvml = plot.nvml.clone();
     let is_display_gpu_temperature = plot.is_display_gpu_temperature.clone();
     let is_display_cpu_temperature = plot.is_display_cpu_temperature.clone();
+    let amount_of_stored_data = plot.amount_of_stored_data.clone();
 
     let thread = std::thread::spawn(move || {
         loop {
@@ -161,40 +202,31 @@ pub fn run_multi_threaded_implementation() -> Result<(), eframe::Error> {
 
             if read_inner_timer == None {
                 *inner_timer.write().unwrap() = Some(Instant::now());
-            } else if read_inner_timer.unwrap().elapsed() >= *time_between_update {
+            } else if read_inner_timer.unwrap().elapsed() >= Duration::from_millis(*delay_between_temperature_requests.read().unwrap()) {
                 let mut gpu_temperature_inner = 0.0;
                 let mut cpu_temperature_inner = 0.0;
 
                 let is_display_gpu_temperature_read = *is_display_gpu_temperature.read().unwrap();
                 let is_display_cpu_temperature_read = *is_display_cpu_temperature.read().unwrap();
+                let amount_of_stored_data_read = *amount_of_stored_data.read().unwrap();
 
-                if is_display_gpu_temperature_read {
-                    let update_time = Instant::now();
-                    
+                if is_display_gpu_temperature_read {                    
                     gpu_temperature_inner = get_gpu_current_celsius_temperature_nvml(&mut nvml.write().unwrap());
-
-                    println!("gpu update_time get {}", update_time.elapsed().as_millis());
                 }
 
                 if is_display_cpu_temperature_read {
-                    let update_time = Instant::now();
-
                     cpu_temperature_inner = get_cpu_current_celsius_temperature();
-
-                    println!("cpu update_time get {}", update_time.elapsed().as_millis());
                 }
 
                 gpu_temperature.write().unwrap().push(gpu_temperature_inner);
 
-                if gpu_temperature.read().unwrap().len() > 120 {
-                    gpu_temperature.write().unwrap().remove(0);
+                if gpu_temperature.read().unwrap().len() > amount_of_stored_data_read as usize {
                     gpu_temperature.write().unwrap().remove(0);
                 }
 
                 cpu_temperature.write().unwrap().push(cpu_temperature_inner);
 
-                if cpu_temperature.read().unwrap().len() > 120 {
-                    cpu_temperature.write().unwrap().remove(0);
+                if cpu_temperature.read().unwrap().len() > amount_of_stored_data_read as usize {
                     cpu_temperature.write().unwrap().remove(0);
                 }
 

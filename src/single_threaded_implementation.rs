@@ -13,7 +13,7 @@ use windows::{
 use nvml_wrapper::Nvml;
 
 struct PlotExample {
-    delay_between_temperature_requests: u16,
+    delay_between_temperature_requests: u64,
     inner_timer: Option<Instant>,
     is_display_gpu_temperature: bool,
     is_display_cpu_temperature: bool,
@@ -24,7 +24,7 @@ struct PlotExample {
     amount_of_stored_data: u16,
     wmi_server: IWbemServices,
     nvml: Nvml,
-    delay_between_updates: u8
+    delay_between_updates: u64
 }
 
 impl Default for PlotExample {
@@ -53,10 +53,10 @@ impl Default for PlotExample {
             cpu_temperature: Vec::new(),
             cpu_name,
             gpu_name,
-            amount_of_stored_data: 600,
+            amount_of_stored_data: 1200,
             wmi_server,
             nvml,
-            delay_between_updates: 12
+            delay_between_updates: 16
         }
     }
 }
@@ -95,7 +95,7 @@ impl eframe::App for PlotExample {
             ui.add(egui::Slider::new(&mut self.delay_between_updates, 1..=100)).on_hover_text("регулюємо затримку між оновленнями рендеру кожного кадру, простіше кажучи - дозволяє збільшувати, або зменшувати обмеження fps. Чим більше значення тим більша затримка, та нижчий fps, та відповідно меньше навантаження на систему.");
             ui.add_space(10.0);
 
-            ui.label("кількість відображених даних про температуру").on_hover_text("регулюємо кількість елментів графіка відображених на екрані. Після накопичення вказаного значення найстаріші значеня починають по одному видалятися, як тільки надходять нові данні. Чим більше значення, тим більша кількість елментів буде збережена, та відобоажена на екрані (за певний проміжок часу).");
+            ui.label("Кількість відображених даних про температуру").on_hover_text("регулюємо кількість елментів графіка відображених на екрані. Після накопичення вказаного значення найстаріші значеня починають по одному видалятися, як тільки надходять нові данні. Чим більше значення, тим більша кількість елментів буде збережена, та відобоажена на екрані (за певний проміжок часу).");
             ui.add(egui::Slider::new(&mut self.amount_of_stored_data, 10..=1200)).on_hover_text("регулюємо кількість елментів графіка відображених на екрані. Після накопичення вказаного значення найстаріші значеня починають по одному видалятися, як тільки надходять нові данні. Чим більше значення, тим більша кількість елментів буде збережена, та відобоажена на екрані (за певний проміжок часу).");
             
         });
@@ -129,9 +129,9 @@ impl eframe::App for PlotExample {
                 })
                 .show(ui, |plot_ui| {
                     if self.gpu_temperature.len() < 2 {
-                        plot_ui.line(Line::new(PlotPoints::default()).name("GPU"));
+                        plot_ui.line(Line::new(PlotPoints::default()).name("GPU").width(5.0));
 
-                        plot_ui.line(Line::new(PlotPoints::default()).name("CPU"));
+                        plot_ui.line(Line::new(PlotPoints::default()).name("CPU").width(5.0));
                     } else {
                         if self.is_display_gpu_temperature {
                             plot_ui.line(Line::new(PlotPoints::from_ys_f32(&self.gpu_temperature[..])).name("GPU").width(5.0).color(egui::Color32::GREEN));
@@ -146,7 +146,7 @@ impl eframe::App for PlotExample {
 
         if self.inner_timer == None {
             self.inner_timer = Some(Instant::now());
-        } else if self.inner_timer.unwrap().elapsed() >= Duration::from_millis(self.delay_between_temperature_requests as u64) {
+        } else if self.inner_timer.unwrap().elapsed() >= Duration::from_millis(self.delay_between_temperature_requests) {
             let mut gpu_temperature_inner = 0.0;
             let mut cpu_temperature_inner = 0.0;
 
@@ -162,20 +162,18 @@ impl eframe::App for PlotExample {
 
             if self.gpu_temperature.len() > self.amount_of_stored_data as usize {
                 self.gpu_temperature.remove(0);
-                self.gpu_temperature.remove(0);
             }
 
             self.cpu_temperature.push(cpu_temperature_inner);
 
             if self.cpu_temperature.len() > self.amount_of_stored_data as usize {
                 self.cpu_temperature.remove(0);
-                self.cpu_temperature.remove(0);
             }
 
             self.inner_timer = None;
         }
 
-        std::thread::sleep(Duration::from_millis(self.delay_between_updates as u64)); // обмежую "fps" програми, щоб заощадити ресурси комп'ютера
+        std::thread::sleep(Duration::from_millis(self.delay_between_updates)); // обмежую "fps" програми, щоб заощадити ресурси комп'ютера
 
         ctx.request_repaint();
     }
